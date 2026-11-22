@@ -28,11 +28,14 @@ export function searchTerms(query: string): string[] {
     .filter(Boolean))];
 }
 
-function escapeRegex(value: string): string {
+/** Escape regex metacharacters so user input is matched literally (ASVS V1.2.9). */
+export function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function buildTorSearchFilter(query: string): Record<string, unknown> {
+export function buildTorSearchFilter(query: unknown): Record<string, unknown> {
+  if (typeof query !== "string") throw new Error("q must be a string");
+  if (query.includes("\0")) throw new Error("Search must not contain null bytes");
   if (query.length > MAX_SEARCH_LENGTH) throw new Error(`คำค้นหายาวได้ไม่เกิน ${MAX_SEARCH_LENGTH} ตัวอักษร`);
   const terms = searchTerms(query);
   if (terms.length > MAX_SEARCH_TERMS) throw new Error(`ค้นหาได้ไม่เกิน ${MAX_SEARCH_TERMS} คำต่อครั้ง`);

@@ -104,17 +104,84 @@ export const api = {
 /* ─── Auth helpers ─────────────────────────────────────────────────── */
 
 /** Start Google OAuth by redirecting to the backend. */
-export function loginWithGoogle(): void {
-  window.location.href = `${API_BASE_URL}/auth/google`;
+export async function loginWithGoogle(): Promise<void> {
+  // This proof stays in the initiating tab. A login code copied to another
+  // browser cannot be exchanged, even if it came from a valid Google login.
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const base64url = (value: Uint8Array) => btoa(String.fromCharCode(...value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const verifier = base64url(bytes);
+  const challenge = base64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))));
+  sessionStorage.setItem("icheertor_login_verifier", verifier);
+  window.location.href = `${API_BASE_URL}/auth/google?browserChallenge=${encodeURIComponent(challenge)}`;
 }
 
-/** Sign out by clearing the token. */
-export function logout(): void {
+/**
+ * Exchange the one-time login code from the OAuth callback for a session
+ * token. The code arrives in the URL fragment and is single use.
+ */
+export async function exchangeLoginCode(code: string): Promise<void> {
+  const browserVerifier = sessionStorage.getItem("icheertor_login_verifier");
+  if (!browserVerifier) throw new Error("login_binding_missing");
+  const previousToken = getToken();
+  const res = await fetch(`${API_BASE_URL}/auth/exchange`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(previousToken ? { Authorization: `Bearer ${previousToken}` } : {}) },
+    body: JSON.stringify({ code, browserVerifier }),
+  });
+  sessionStorage.removeItem("icheertor_login_verifier");
+  if (!res.ok) throw new Error("login_code_rejected");
+  const body = (await res.json()) as { data?: { token?: string } };
+  if (!body.data?.token) throw new Error("login_code_rejected");
+  setToken(body.data.token);
+}
+
+/** End the session on the server, then clear local state. */
+export async function logout(redirectTo = "/"): Promise<void> {
+  const token = getToken();
+  if (token) {
+    // Best effort: even if the server is unreachable, the local token is removed.
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => undefined);
+  }
   clearToken();
-  window.location.href = "/";
+  window.location.href = redirectTo;
 }
 
-/** Get current user info from the JWT. */
+/**
+ * Watch every fetch to the backend: when a request that carried a session
+ * token gets 401, the session has ended on the server (logout elsewhere,
+ * idle timeout, absolute lifetime, suspension). Clear the stale token and
+ * send the user to sign in again.
+ *
+ * Pages call fetch() directly in many places, so this wraps window.fetch
+ * once instead of relying on every call site to handle 401.
+ */
+let authGuardInstalled = false;
+export function installSessionExpiryGuard(): void {
+  if (typeof window === "undefined" || authGuardInstalled) return;
+  authGuardInstalled = true;
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const response = await originalFetch(input, init);
+    if (response.status === 401) {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+      const sentToken = headers.get("Authorization")?.startsWith("Bearer ");
+      if (url.startsWith(API_BASE_URL) && sentToken && getToken()) {
+        clearToken();
+        if (!window.location.pathname.startsWith("/login")) {
+          window.location.href = "/login?reason=session_expired";
+        }
+      }
+    }
+    return response;
+  };
+}
+
+/** Get current user info (role and status come from the server's database). */
 export async function getCurrentUser() {
   try {
     const result = await api.get<{

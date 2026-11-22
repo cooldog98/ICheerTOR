@@ -27,7 +27,7 @@ The project is split into two services:
 
 - [Node.js](https://nodejs.org/) v20+
 - [npm](https://www.npmjs.com/) v10+
-- MongoDB (local or [Atlas](https://cloud.mongodb.com/))
+- MongoDB replica set (local Compose or [Atlas](https://cloud.mongodb.com/)); standalone MongoDB cannot run the security/audit transactions
 - Google OAuth credentials ([setup guide](./ENV_SETUP_GUIDE.md#2-authentication--passport--jwt))
 
 ### Installation
@@ -48,6 +48,7 @@ cp .env.example .env
 # 4. Install frontend dependencies
 cd ../frontend
 npm install
+cp .env.local.example .env.local
 
 # 5. Start both servers (in separate terminals)
 
@@ -68,7 +69,7 @@ The API is served at [http://localhost:3001/api](http://localhost:3001/api).
 ```bash
 # 1. Configure backend environment variables
 cp backend/.env.example backend/.env
-# Edit backend/.env (use MONGODB_URI=mongodb://mongo:27017/icheertor for Docker)
+# Edit backend/.env (use MONGODB_URI=mongodb://mongo:27017/icheertor?replicaSet=rs0 for Docker)
 
 # 2. Build and start the full stack (backend + frontend + MongoDB)
 docker compose up --build
@@ -242,6 +243,54 @@ See [CI/CD Pipeline](./ENV_SETUP_GUIDE.md#-cicd-pipeline-github-actions) and [Re
 ## Environment Variables
 
 See [ENV_SETUP_GUIDE.md](./ENV_SETUP_GUIDE.md) for a complete reference of all environment variables, where to get them, and minimum configuration for local development.
+
+## Optional live-provider verification
+
+These scripts are run manually and are not part of `npm run test:security`.
+Run them from `backend/` after installing dependencies. Provide your own test
+credentials in the ignored `backend/.env`; do not commit that file or credential
+files. The scripts clear inherited service credentials and copy only the relevant
+provider settings from that file. They set an empty application database URI and
+do not connect to an application database.
+
+### SMTP
+
+Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and `SMTP_PASS` in `backend/.env`.
+
+```bash
+cd backend
+node --import tsx scripts/smtp-verify-isolated.mts
+# Explicitly send one synthetic message to an inbox you are authorized to test:
+node --import tsx scripts/smtp-verify-isolated.mts --send-test --to=you@example.com
+```
+
+The default command checks the live SMTP connection and authentication without
+sending a message. Sending requires both `--send-test` and `--to`. SMTP submission
+success is separate from inbox receipt, which the recipient must confirm. This
+does not verify database-backed notification dispatch.
+
+### AI
+
+Configure `VERTEX_AI_API_KEY` and the appropriate `VERTEX_AI_MODEL`,
+`VERTEX_AI_PROJECT_ID` and `VERTEX_AI_LOCATION` settings in `backend/.env`.
+This harness requires an API key and does not use ADC fallback.
+
+```bash
+# From backend/; these commands contact the provider and may incur charges:
+node --import tsx scripts/ai-live-isolated.mts
+node --import tsx scripts/ai-live-isolated.mts --adversarial-only
+```
+
+The default AI command allows at most two provider requests; adversarial-only
+allows one. Automatic retries are disabled. The tests use synthetic text and a
+custom response schema through the application's model-call boundary. They do
+not establish full TOR/PDF extraction, factual accuracy or universal prompt
+injection resistance. HTTP 429 or another provider failure does not establish
+the outcome of the blocked model test. Diagnostic redaction is implemented in
+`backend/scripts/helpers/ai-provider-diagnostic.mts`.
+
+The report's live results describe their recorded executions. Changes to these
+scripts or documentation do not constitute a new live verification.
 
 ## License
 

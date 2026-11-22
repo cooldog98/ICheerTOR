@@ -1,6 +1,10 @@
 import passport from "passport";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { Strategy as GoogleStrategy, StrategyOptions } from "passport-google-oauth20";
 import { env } from "../config/env.js";
+import { CookieStateStore } from "./oauth-state-store.js";
+
+// @types/passport-google-oauth20 does not declare passport-oauth2's `pkce` and `store` options.
+type GoogleStrategyOptions = StrategyOptions & { pkce: boolean; store: CookieStateStore };
 import { connectDB } from "../db/connection.js";
 import User from "../db/models/user.js";
 
@@ -16,19 +20,27 @@ passport.use(
       clientID: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       callbackURL: env.GOOGLE_CALLBACK_URL,
-    },
+      // Bind each callback to the browser that started the login (state) and
+      // protect the authorization code with PKCE (S256). See oauth-state-store.ts.
+      state: true,
+      pkce: true,
+      store: new CookieStateStore(),
+    } as GoogleStrategyOptions,
     async (_accessToken, _refreshToken, profile, done) => {
       try {
         await connectDB();
 
         const email = profile.emails?.[0]?.value ?? "";
+        if (!email || profile._json.email_verified !== true) {
+          return done(null, false, { message: "A verified Google email is required" });
+        }
         const googleId = profile.id;
         const isBootstrapDeveloper = env.ADMIN_EMAILS.includes(email.toLowerCase());
 
         let user = await User.findOne({ googleId });
 
         if (user) {
-          if (user.status === "suspended" || user.status === "banned") {
+          if (user.deletedAt || user.status !== "active") {
             return done(null, false, { message: "Account is suspended or banned" });
           }
           user.lastLoginAt = new Date();

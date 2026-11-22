@@ -34,7 +34,7 @@
  */
 
 import { config } from "dotenv";
-config({ path: ".env" });
+if (process.env.NODE_ENV !== "test") config({ path: ".env" });
 
 import mongoose, { type Types } from "mongoose";
 
@@ -43,6 +43,7 @@ import ExtractionLog from "../src/db/models/extraction-log";
 import { extractTor, prepareDocuments } from "../src/services/ai/tor-parser";
 import { activePrompt } from "../src/services/ai/prompts";
 import { getModelId } from "../src/services/ai/vertex-client";
+import { claimExtraction, commitOwnedExtraction, updateOwnedExtraction } from "../src/services/extraction-lease";
 import { fetchProjectArchive } from "../src/services/ingestion/egp-client";
 import { EgpMaintenanceError } from "../src/services/ingestion/egp-maintenance";
 import { bidWindow, computeDataChecks } from "../src/services/ingestion/data-checks";
@@ -90,7 +91,7 @@ type QueueRecord = Pick<
   | "metadata"
   | "sourceDocuments"
   | "parsedData"
-> & { _id: Types.ObjectId };
+> & { _id: Types.ObjectId; leaseOwner?: string };
 
 const QUEUE_FIELDS =
   "title agencyName phase budget medianPrice publicHearingEnd postingDate submissionDeadline extraction extractionStatus metadata sourceDocuments";
@@ -136,16 +137,10 @@ async function loadQueue(): Promise<QueueRecord[]> {
 
 /** Take the record, or return null if another run already has it. */
 async function claim(r: QueueRecord): Promise<boolean> {
-  const now = new Date();
-  const res = await TORRecord.updateOne(
-    {
-      _id: r._id,
-      extractionStatus: r.extractionStatus,
-      ...(FORCE ? {} : { $or: [{ "extraction.lockedUntil": null }, { "extraction.lockedUntil": { $lt: now } }] }),
-    },
-    { $set: { extractionStatus: "processing", "extraction.lockedUntil": new Date(now.getTime() + LOCK_MS) } },
-  );
-  return res.modifiedCount === 1;
+  const owner = await claimExtraction(r._id.toString(), r.extractionStatus, LOCK_MS, FORCE);
+  if (!owner) return false;
+  r.leaseOwner = owner;
+  return true;
 }
 
 /* ─── Extraction ────────────────────────────────────────────────────── */
@@ -177,8 +172,10 @@ async function extractOne(r: QueueRecord): Promise<RunResult> {
 
   if (outcome.status === "completed") {
     const { update, meta } = outcome;
-    await TORRecord.updateOne(
-      { _id: r._id },
+    // An admin's corrections are overwritten by a fresh reading (the TOR
+    // changed); they stay in usercorrections, and the review is marked
+    // outdated in the same transaction.
+    await commitOwnedExtraction(r._id.toString(), r.leaseOwner!,
       {
         $set: {
           parsedData: update.parsedData,
@@ -205,17 +202,6 @@ async function extractOne(r: QueueRecord): Promise<RunResult> {
         },
       },
     );
-    // An admin's corrections were just overwritten by a fresh reading (the
-    // TOR changed); they stay in usercorrections, and the review says so.
-    await TORRecord.updateOne(
-      { _id: r._id, "review.status": "verified" },
-      {
-        $set: {
-          "review.status": "outdated",
-          "review.note": "AI อ่าน TOR ใหม่หลังการตรวจ — ค่าที่แก้ไว้ถูกเขียนทับ ดูประวัติใน usercorrections",
-        },
-      },
-    );
     await ExtractionLog.create({
       torRecordId: r._id,
       promptVersion: meta.promptVersion,
@@ -238,15 +224,14 @@ async function extractOne(r: QueueRecord): Promise<RunResult> {
   }
 
   if (outcome.status === "skipped") {
-    await TORRecord.updateOne(
-      { _id: r._id },
+    await updateOwnedExtraction(r._id.toString(), r.leaseOwner!,
       {
         $set: {
           extractionStatus: "skipped",
           "extraction.skipReason": outcome.skipReason,
           sourceDocuments: outcome.sourceDocuments,
         },
-        $unset: { "extraction.lockedUntil": 1 },
+        $unset: { "extraction.lockedUntil": 1, "extraction.lockOwner": 1 },
       },
     );
     console.log(`– ข้าม: ${outcome.skipReason}`);
@@ -256,9 +241,8 @@ async function extractOne(r: QueueRecord): Promise<RunResult> {
   // e-GP's planned downtime is nobody's failure: back to the queue as it
   // was, no attempt counted, and stop the run until e-GP is back.
   if (outcome.errorCode === "maintenance") {
-    await TORRecord.updateOne(
-      { _id: r._id },
-      { $set: { extractionStatus: r.extractionStatus }, $unset: { "extraction.lockedUntil": 1 } },
+    await updateOwnedExtraction(r._id.toString(), r.leaseOwner!,
+      { $set: { extractionStatus: r.extractionStatus === "processing" ? "pending" : r.extractionStatus }, $unset: { "extraction.lockedUntil": 1, "extraction.lockOwner": 1 } },
     );
     console.log(`– ${outcome.error.slice(0, 160)}`);
     return "stop";
@@ -268,15 +252,14 @@ async function extractOne(r: QueueRecord): Promise<RunResult> {
   // errors count towards the attempt cap.
   const attempts = (r.extraction?.attempts ?? 0) + 1;
   const giveUp = !outcome.retryable || attempts >= MAX_ATTEMPTS;
-  await TORRecord.updateOne(
-    { _id: r._id },
+  await updateOwnedExtraction(r._id.toString(), r.leaseOwner!,
     {
       $set: {
         extractionStatus: giveUp ? "failed" : "pending",
         extractionError: outcome.error.slice(0, 500),
         "extraction.attempts": attempts,
       },
-      $unset: { "extraction.lockedUntil": 1 },
+      $unset: { "extraction.lockedUntil": 1, "extraction.lockOwner": 1 },
     },
   );
   await ExtractionLog.create({

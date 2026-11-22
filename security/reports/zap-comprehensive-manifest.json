@@ -1,0 +1,281 @@
+{
+  "baseRevision": "f664929cc69a41991aa38270da144febac4eeee7",
+  "branch": "security/zap-active-verification",
+  "workingTreeChangesIncluded": true,
+  "finishedAtUtc": "2026-11-18T12:42:11Z",
+  "image": "ghcr.io/zaproxy/zaproxy:stable",
+  "imageId": "sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af",
+  "excludedActiveRoutes": [
+    "/auth/exchange",
+    "/pdpa/export",
+    "/tor/{id}/corrections"
+  ],
+  "preflight": [
+    {
+      "role": "user",
+      "path": "/auth/me",
+      "status": 200
+    },
+    {
+      "role": "user",
+      "path": "/tor/6afd9c2b68a3c6a2680698ff",
+      "status": 200
+    },
+    {
+      "role": "user",
+      "path": "/profile",
+      "status": 200
+    },
+    {
+      "role": "user",
+      "path": "/admin/users",
+      "status": 403
+    },
+    {
+      "role": "admin",
+      "path": "/auth/me",
+      "status": 200
+    },
+    {
+      "role": "admin",
+      "path": "/tor/6afd9c2b68a3c6a2680698ff",
+      "status": 200
+    },
+    {
+      "role": "admin",
+      "path": "/profile",
+      "status": 200
+    },
+    {
+      "role": "admin",
+      "path": "/admin/users",
+      "status": 200
+    },
+    {
+      "role": "developer",
+      "path": "/auth/me",
+      "status": 200
+    },
+    {
+      "role": "developer",
+      "path": "/tor/6afd9c2b68a3c6a2680698ff",
+      "status": 200
+    },
+    {
+      "role": "developer",
+      "path": "/profile",
+      "status": 200
+    },
+    {
+      "role": "developer",
+      "path": "/admin/users",
+      "status": 200
+    }
+  ],
+  "results": [
+    {
+      "scope": "frontend",
+      "exitCode": 2,
+      "alerts": [
+        {
+          "name": "CSP: style-src unsafe-inline",
+          "risk": "Medium (High)",
+          "instances": 5
+        },
+        {
+          "name": "HTTP Only Site",
+          "risk": "Medium (Medium)",
+          "instances": 1
+        },
+        {
+          "name": "Cross-Origin-Embedder-Policy Header Missing or Invalid",
+          "risk": "Low (Medium)",
+          "instances": 3
+        },
+        {
+          "name": "Modern Web Application",
+          "risk": "Informational (Medium)",
+          "instances": 5
+        },
+        {
+          "name": "Non-Storable Content",
+          "risk": "Informational (Medium)",
+          "instances": 4
+        },
+        {
+          "name": "Storable and Cacheable Content",
+          "risk": "Informational (Medium)",
+          "instances": 5
+        },
+        {
+          "name": "User Agent Fuzzer",
+          "risk": "Informational (Medium)",
+          "instances": 5
+        }
+      ],
+      "coverage": {
+        "activeScans": [
+          {
+            "reqCount": "3089",
+            "alertCount": "74",
+            "progress": "100",
+            "newAlertCount": "74",
+            "id": "0",
+            "state": "FINISHED"
+          }
+        ],
+        "spiderScans": [
+          {
+            "progress": "100",
+            "id": "0",
+            "state": "FINISHED"
+          }
+        ],
+        "passiveRecordsRemaining": "0",
+        "recordedUrls": 31,
+        "browserExtensionWarnings": 2,
+        "errorLines": []
+      }
+    },
+    {
+      "scope": "user",
+      "exitCode": 0,
+      "alerts": [
+        {
+          "name": "A Client Error response code was returned by the server",
+          "risk": "Informational (High)",
+          "instances": 58
+        },
+        {
+          "name": "Non-Storable Content",
+          "risk": "Informational (Medium)",
+          "instances": 5
+        }
+      ],
+      "coverage": {
+        "activeScans": [
+          {
+            "reqCount": "4174",
+            "alertCount": "0",
+            "progress": "100",
+            "newAlertCount": "0",
+            "id": "0",
+            "state": "FINISHED"
+          }
+        ],
+        "spiderScans": [],
+        "passiveRecordsRemaining": "0",
+        "recordedUrls": 83,
+        "browserExtensionWarnings": 0,
+        "errorLines": []
+      }
+    },
+    {
+      "scope": "admin",
+      "exitCode": 0,
+      "alerts": [
+        {
+          "name": "A Client Error response code was returned by the server",
+          "risk": "Informational (High)",
+          "instances": 49
+        },
+        {
+          "name": "Non-Storable Content",
+          "risk": "Informational (Medium)",
+          "instances": 5
+        }
+      ],
+      "coverage": {
+        "activeScans": [
+          {
+            "reqCount": "4216",
+            "alertCount": "0",
+            "progress": "100",
+            "newAlertCount": "0",
+            "id": "0",
+            "state": "FINISHED"
+          }
+        ],
+        "spiderScans": [],
+        "passiveRecordsRemaining": "0",
+        "recordedUrls": 74,
+        "browserExtensionWarnings": 0,
+        "errorLines": []
+      }
+    },
+    {
+      "scope": "developer",
+      "exitCode": 0,
+      "alerts": [
+        {
+          "name": "A Client Error response code was returned by the server",
+          "risk": "Informational (High)",
+          "instances": 49
+        },
+        {
+          "name": "Non-Storable Content",
+          "risk": "Informational (Medium)",
+          "instances": 5
+        }
+      ],
+      "coverage": {
+        "activeScans": [
+          {
+            "reqCount": "4216",
+            "alertCount": "0",
+            "progress": "100",
+            "newAlertCount": "0",
+            "id": "0",
+            "state": "FINISHED"
+          }
+        ],
+        "spiderScans": [],
+        "passiveRecordsRemaining": "0",
+        "recordedUrls": 74,
+        "browserExtensionWarnings": 0,
+        "errorLines": []
+      }
+    },
+    {
+      "scope": "anonymous",
+      "exitCode": 0,
+      "alerts": [
+        {
+          "name": "A Client Error response code was returned by the server",
+          "risk": "Informational (High)",
+          "instances": 86
+        },
+        {
+          "name": "Non-Storable Content",
+          "risk": "Informational (Medium)",
+          "instances": 5
+        }
+      ],
+      "coverage": {
+        "activeScans": [
+          {
+            "reqCount": "4080",
+            "alertCount": "0",
+            "progress": "100",
+            "newAlertCount": "0",
+            "id": "0",
+            "state": "FINISHED"
+          }
+        ],
+        "spiderScans": [],
+        "passiveRecordsRemaining": "0",
+        "recordedUrls": 93,
+        "browserExtensionWarnings": 0,
+        "errorLines": []
+      }
+    }
+  ],
+  "allConfiguredActiveScansFinished": true,
+  "limitations": [
+    "Synthetic sessions; real Google OAuth browser flow not tested",
+    "Administrative writes, logout and deletion excluded from ZAP; endpoint-matrix/regression tests cover them",
+    "Frontend ZAP full scan is unauthenticated; separate Firefox tests exercise signed-in screens and stored XSS",
+    "No production deployment, external SMTP/AI or cloud IAM tests",
+    "API rate limit raised only inside disposable fixture; sensitive/auth limits retained"
+  ]
+}

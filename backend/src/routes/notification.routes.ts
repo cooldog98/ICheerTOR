@@ -3,10 +3,15 @@ import { connectDB } from "../db/connection.js";
 import Notification from "../db/models/notification.js";
 import User from "../db/models/user.js";
 import { apiSuccess, Errors } from "../utils/api-response.js";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, requireScope } from "../middleware/auth.js";
+import { objectIdParam, validate } from "../middleware/validate.js";
+import { notificationListQuery, notificationPrefsBody } from "../validation/schemas.js";
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, requireScope("notifications:own"));
+router.param("id", objectIdParam);
+
+// Every query is scoped to the session's userId (object-level access control, threat T05).
 
 /** GET /api/notifications/prefs — Get current user's notification preferences. */
 router.get("/prefs", async (req: Request, res: Response) => {
@@ -20,20 +25,21 @@ router.get("/unread-count", async (req: Request, res: Response) => {
   await connectDB();
   const unreadCount = await Notification.countDocuments({
     userId: req.user!.id,
+    "channels.inApp.sent": true,
     "channels.inApp.readAt": { $exists: false },
   });
   apiSuccess(res, { unreadCount });
 });
 
 /** GET /api/notifications — List current user's notifications. */
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", validate({ query: notificationListQuery }), async (req: Request, res: Response) => {
   await connectDB();
 
   const unreadOnly = req.query.unreadOnly === "true";
   const page = Math.max(1, parseInt((req.query.page as string) ?? "1", 10));
   const limit = Math.min(100, parseInt((req.query.limit as string) ?? "20", 10));
 
-  const filter: Record<string, unknown> = { userId: req.user!.id };
+  const filter: Record<string, unknown> = { userId: req.user!.id, "channels.inApp.sent": true };
   if (unreadOnly) {
     filter["channels.inApp.readAt"] = { $exists: false };
   }
@@ -50,15 +56,22 @@ router.get("/", async (req: Request, res: Response) => {
   apiSuccess(res, notifications, { total, page, limit });
 });
 
-/** PUT /api/notifications — Update notification channel preferences. */
-router.put("/", async (req: Request, res: Response) => {
+/**
+ * PUT /api/notifications — Update notification channel preferences.
+ * Body: { inApp?: boolean, email?: boolean }. Only these two fields can be
+ * written; previously the whole request body was $set (mass assignment).
+ */
+router.put("/", validate({ body: notificationPrefsBody }), async (req: Request, res: Response) => {
   await connectDB();
+  const { inApp, email } = req.body as { inApp?: boolean; email?: boolean };
 
-  const user = await User.findByIdAndUpdate(
-    req.user!.id,
-    { $set: { notificationPrefs: req.body } },
-    { new: true },
-  );
+  const set: Record<string, boolean> = {};
+  if (inApp !== undefined) set["notificationPrefs.inApp"] = inApp;
+  if (email !== undefined) set["notificationPrefs.email"] = email;
+
+  const user = await User.findByIdAndUpdate(req.user!.id, { $set: set }, { returnDocument: "after" })
+    .select("notificationPrefs")
+    .lean();
 
   apiSuccess(res, user?.notificationPrefs);
 });
@@ -79,10 +92,11 @@ router.patch("/read-all", async (req: Request, res: Response) => {
 router.patch("/:id/read", async (req: Request, res: Response) => {
   await connectDB();
 
+  // Ownership check and update are one atomic operation (no TOCTOU, ASVS V15.4.2).
   const notification = await Notification.findOneAndUpdate(
     { _id: req.params.id, userId: req.user!.id },
     { $set: { "channels.inApp.readAt": new Date() } },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   if (!notification) {
