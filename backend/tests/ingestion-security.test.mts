@@ -3,6 +3,19 @@ import { deflateRawSync } from "node:zlib";
 import { listEntries, readEntry, ZIP_LIMITS } from "../src/services/ingestion/zip-reader.js";
 import { assertProcurementUrl, procurementFetch, readLimitedBody } from "../src/services/ingestion/safe-fetch.js";
 import { extractPdfText } from "../src/services/ingestion/pdf-text.js";
+import { maintenanceNotice } from "../src/services/ingestion/egp-maintenance.js";
+import { pickDocument } from "../src/services/ingestion/document-picker.js";
+
+// Notice detection reads parsed text; script/style content must not invent an outage.
+assert.equal(maintenanceNotice('<html><script>ปิดระบบ</script><style>ปิดปรับปรุง</style><p>บริการปกติ</p></html>'), null);
+assert.match(maintenanceNotice('<html><body><p>ปิดระบบ&nbsp;ชั่วคราว</p><p>จะเปิดใช้งานเวลา 18.01 น.</p></body></html>')!, /จะเปิดใช้งานเวลา 18\.01 น\./);
+for (const [name, kind] of [
+  ["doc_123.pdf", "bidding_doc"], ["my_bidding.pdf", "bidding_doc"],
+  ["annoudoc123.pdf", "announcement"], ["my_notice.pdf", "announcement"],
+  ["prefix_doc_123.pdf", "other"], ["prefix_annoudoc123.pdf", "other"],
+] as const) {
+  assert.equal(pickDocument([{ name, rawName: name, size: 100 }]).ranked[0].kind, kind);
+}
 
 /** Small synthetic archives exercise boundaries without downloading real documents. */
 function archive(name = "tor.pdf", plain = Buffer.from("%PDF-1.7 test"), declared = plain.length, attrs = 0) {

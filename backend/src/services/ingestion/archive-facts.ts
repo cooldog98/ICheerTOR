@@ -20,6 +20,7 @@
  * announcement. Checking again is cheap because no model call is involved. */
 
 import { parseThaiAmountWords } from "../ai/thai-number";
+import { escapeRegex } from "../search/tor-search";
 
 export type SubmissionDateStatus = "confirmed" | "pending";
 
@@ -120,7 +121,7 @@ const MONTHS: Record<string, number> = {
 };
 const MONTH = Object.keys(MONTHS)
   .sort((a, b) => b.length - a.length)
-  .map((m) => m.replace(/\./g, "\\."))
+  .map(escapeRegex)
   .join("|");
 
 /* Thai digits to ASCII, and every run of whitespace (line breaks too) to one space. */

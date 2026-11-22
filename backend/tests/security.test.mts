@@ -258,6 +258,14 @@ const redos = await call(`/tor?agency=${encodeURIComponent("(a+)+$")}`, { token:
 check("regex syntax in agency treated literally", redos.status === 200 && (await json(redos)).data?.length === 0);
 const dot = await json(await call(`/admin/users?q=${encodeURIComponent(".*")}`, { token: tokAdam }));
 check("admin search '.*' is literal (no match-all)", dot.meta?.total === 0);
+const filteredUsers = await json(await call("/admin/users?status=active&role=user&q=alice", { token: tokAdam }));
+check("admin equality filters preserve status and role matching", filteredUsers.data?.length === 1 && filteredUsers.data[0].email === "alice@example.com");
+const filteredTors = await json(await call("/tor?scope=all&phase=bidding", { token: tokAlice }));
+check("TOR phase equality filter preserves matching records", filteredTors.data?.some((record: { _id: string }) => record._id === torId.toString()));
+const filteredLogs = await json(await call("/admin/logs?action=nonexistent_action", { token: tokAdam }));
+check("audit action equality filter excludes unrelated logs", filteredLogs.data?.length === 0 && filteredLogs.meta?.total === 0);
+const verifiedReviews = await json(await call("/admin/tor-review?status=verified", { token: tokAdam }));
+check("review equality filter excludes never-reviewed records", verifiedReviews.data?.length === 0 && verifiedReviews.meta?.total === 0);
 const proto = await call(`/tor/${torId}/corrections`, { method: "POST", token: tokAlice, json: { fieldPath: "__proto__.polluted", correctedValue: "x" } });
 check("prototype path in correction rejected", proto.status === 400);
 check("correction with object value rejected", (await call(`/tor/${torId}/corrections`, { method: "POST", token: tokAlice, json: { fieldPath: "title", correctedValue: { $gt: "" } } })).status === 400);
