@@ -25,7 +25,7 @@ The project is split into two services:
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v20+
+- [Node.js](https://nodejs.org/) v22+
 - [npm](https://www.npmjs.com/) v10+
 - MongoDB replica set (local Compose or [Atlas](https://cloud.mongodb.com/)); standalone MongoDB cannot run the security/audit transactions
 - Google OAuth credentials ([setup guide](./ENV_SETUP_GUIDE.md#2-authentication--passport--jwt))
@@ -34,12 +34,12 @@ The project is split into two services:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Natcha-limsuwan/Software-Process.git
-cd Software-Process
+git clone https://github.com/cooldog98/ICheerTOR.git
+cd ICheerTOR
 
 # 2. Install backend dependencies
 cd backend
-npm install
+npm ci
 
 # 3. Configure backend environment variables
 cp .env.example .env
@@ -47,19 +47,21 @@ cp .env.example .env
 
 # 4. Install frontend dependencies
 cd ../frontend
-npm install
+npm ci
 cp .env.local.example .env.local
 
 # 5. Start both servers (in separate terminals)
 
 # Terminal 1 — Backend
-cd backend
+cd /path/to/ICheerTOR/backend
 npm run dev          # → http://localhost:3001
 
 # Terminal 2 — Frontend
-cd frontend
+cd /path/to/ICheerTOR/frontend
 npm run dev          # → http://localhost:3000
 ```
+
+Replace `/path/to/ICheerTOR` with your checkout directory. Start the MongoDB replica set configured in `MONGODB_URI` before starting the backend.
 
 The app will be available at [http://localhost:3000](http://localhost:3000).
 The API is served at [http://localhost:3001/api](http://localhost:3001/api).
@@ -148,7 +150,10 @@ All API routes are served by the backend at `http://localhost:3001/api/`.
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/auth/google` | GET | Initiate Google OAuth login |
-| `/api/auth/google/callback` | GET | OAuth callback (issues JWT) |
+| `/api/auth/google/callback` | GET | OAuth callback; redirects with a browser-bound, single-use login code |
+| `/api/auth/exchange` | POST | Exchange login code and browser verifier for a session JWT |
+| `/api/auth/logout` | POST | Revoke the current session |
+| `/api/auth/logout-all` | POST | Revoke all sessions for the current user |
 | `/api/auth/me` | GET | Get current user from JWT |
 | `/api/tor` | GET | List TOR records (paginated) |
 | `/api/tor/:id` | GET | Get single TOR record |
@@ -157,7 +162,9 @@ All API routes are served by the backend at `http://localhost:3001/api/`.
 | `/api/tor/:id/match` | GET | Get vendor match results |
 | `/api/bookmarks` | GET/POST | List/create bookmarks |
 | `/api/bookmarks/:id` | DELETE | Remove bookmark |
-| `/api/notifications` | GET/PUT | List/mark-read notifications |
+| `/api/notifications` | GET/PUT | List notifications / update channel preferences |
+| `/api/notifications/:id/read` | PATCH | Mark an owned notification as read |
+| `/api/notifications/read-all` | PATCH | Mark the current user’s notifications as read |
 | `/api/profile` | GET/POST/PUT | User profile CRUD |
 | `/api/pdpa/consent` | GET/POST | PDPA consent management |
 | `/api/pdpa/export` | GET | Export user data |
@@ -202,25 +209,10 @@ The app uses a 3-tier role system. After initial setup, all role management is d
 
 1. Set `ADMIN_EMAILS` in `backend/.env` to your email address.
 2. Sign in with Google for the first time.
-3. If no developer exists in the DB, your account is automatically promoted to `developer`.
+3. An active account whose verified Google email is listed in `ADMIN_EMAILS` is created or promoted to `developer` on sign-in. This is not limited to the first developer.
 4. After this, manage all roles through the Admin Panel at `/admin/users`.
 
-Alternatively, you can manually set the role in MongoDB:
-
-1. Sign in with Google so your user document is created in MongoDB.
-2. Open your MongoDB client (e.g. [Atlas UI](https://cloud.mongodb.com/), `mongosh`, or Compass).
-3. Find your user in the `users` collection and update the role:
-
-```javascript
-// In mongosh or Atlas UI → Edit Document
-db.users.updateOne(
-  { email: "your-email@gmail.com" },
-  { $set: { role: "developer" } }
-)
-```
-
-4. Sign out and sign back in to refresh your session.
-5. You now have access to the Admin Panel at `/admin/users` to manage all other users' roles.
+Keep `ADMIN_EMAILS` limited to trusted bootstrap accounts; listed active accounts are promoted again on subsequent sign-ins. Administrative actions remain subject to backend scope and hierarchy checks.
 
 ## CI/CD
 
@@ -233,7 +225,7 @@ Runs on push to `main`/`develop` and PRs to `main`:
 
 ### Deploy (`.github/workflows/deploy.yml`)
 
-Triggered after CI passes:
+Configured to trigger after CI passes, when deployment secrets and target infrastructure are available. This configuration is not evidence of a successful deployment:
 
 - `develop` branch → **Staging** (Docker)
 - `main` branch → **Production** (Docker)
@@ -259,9 +251,11 @@ The reports can be inspected without running scans or connecting to a database.
   [anonymous](security/reports/zap-comprehensive-anonymous.html) scopes.
 - **Historical CodeQL analysis:** inspect the [recorded SARIF](security/reports/codeql-final-fixed.sarif)
   alongside its [historical triage](security/reports/codeql-final-triage.json).
-- **Latest PR CodeQL review:** the [PR #1 follow-up](security/reports/codeql-pr1-review.md)
-  records later fixes, verification and alert dispositions separately. Check the
-  [GitHub PR checks](https://github.com/cooldog98/ICheerTOR/pull/1/checks) for remote execution status.
+- **CodeQL follow-up and latest verified CI:** [review record](security/reports/codeql-pr1-review.md)
+  covers the later fixes and alert dispositions. [Security run 45010808026](https://github.com/cooldog98/ICheerTOR/actions/runs/45010808026)
+  passed for main revision `ca27c7d` on 22 November 2026. At that review, CodeQL
+  had three retained findings, all dismissed with documented reasons, and no open
+  alerts. The twelve alerts addressed in the latest update were marked fixed.
 - **Selected ASVS assessment:** see the [requirement-level review](security/reports/asvs-final-selected-review.csv).
 
 **How to read the evidence:**
@@ -276,6 +270,24 @@ The reports can be inspected without running scans or connecting to a database.
 Reports retain their own execution dates, assessed versions and verification scope.
 Reading them does not execute a new scan. Dismissed alerts are documented review
 decisions, not evidence that the application has no vulnerabilities.
+
+## Isolated security regression checks
+
+```bash
+# From the repository root:
+cd backend
+npm ci
+npm run build
+npm run test:security
+npm run test:extraction
+```
+
+The security command runs the main, ingestion, supplementary, resilience and
+integrity suites. Security tests use disposable MongoDB instances and synthetic
+records, with mocked external providers; they do not require the application
+MongoDB URI or live provider credentials. The MongoDB test binary may need to be
+downloaded on the first run. The extraction command runs offline deterministic
+checks. Browser checks and live-provider verification are separate executions.
 
 ## Optional live-provider verification
 

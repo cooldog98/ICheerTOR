@@ -4,7 +4,7 @@ Reviewed on 22 November 2026 against the local changes following `4ce7f038`.
 This is a source-review record, not a fresh CodeQL analysis or an alert dismissal.
 The earlier final SARIF and its 18-finding triage retain their historical scope.
 
-## Changes awaiting a fresh scan
+## Initial changes (historical source review)
 
 - Alerts #6 and #7 (`js/sql-injection`, bookmark creation): the route already
   applies `bookmarkCreateBody`, which requires a 24-character hexadecimal string
@@ -116,5 +116,25 @@ Verification:
   prefixes, substring keywords and non-prefix lookalikes.
 - These checks did not use the application database or live external providers.
 
-After pushing, inspect a new CodeQL analysis before claiming any of these
-12 alerts are fixed. No rules were disabled and no remaining alerts dismissed.
+At the local-review stage, a new remote analysis was still required. The
+subsequent remote verification is recorded below. No rules were disabled and no
+additional alerts were dismissed for these twelve fixes.
+
+
+## Verified main-branch result — 22 November 2026
+
+[Security run 45010808026](https://github.com/cooldog98/ICheerTOR/actions/runs/45010808026)
+completed successfully for main revision
+`ca27c7da4607c9d7bdc4bd130ebbc20ecfb107e8`, which includes the fixes from
+`682c121e0aa004914e7caf04c10e13e5f4a673e3`.
+
+CodeQL analysis `2223794372` reported three retained findings, all previously
+dismissed with the reasons recorded above, and zero open alerts. The twelve
+alerts in the main-branch follow-up were marked fixed. Together with the three
+earlier search/bookmark fixes, fifteen alerts are cumulatively marked fixed.
+
+CodeQL, Semgrep, security regression tests, production-dependency audits and
+backend/frontend SBOM jobs passed. This supersedes the earlier twelve-open-alert
+status, without changing historical scan counts. CI success and zero open alerts
+do not establish the absence of all vulnerabilities or production infrastructure
+security. This documentation update did not execute another scan or test.

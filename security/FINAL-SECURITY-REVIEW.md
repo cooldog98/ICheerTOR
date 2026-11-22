@@ -14,22 +14,22 @@ updating this file does not rerun any test or scan.
 - Live AI baseline extraction and one embedded-instruction case passed in separate
   text-only custom-schema executions on 21 November 2026 (Asia/Bangkok). Full live
   TOR/PDF extraction, factual accuracy and broad adversarial coverage remain open.
-- Local regression checks on 22 November: main 171, supplementary 25, resilience
-  61 and integrity 30 passed; ingestion checks and backend build also passed.
-  These used disposable synthetic databases and mocked providers. The exact local
-  commit was not captured in that execution output. See
-  [PR follow-up](reports/codeql-pr1-review.md).
-- [Remote Security run 45002854162](https://github.com/cooldog98/ICheerTOR/actions/runs/45002854162)
-  passed on main revision `5688b81a76ce74ac9262cedbeb71f8dbdde2ef6a`.
-- The associated main CodeQL analysis recorded 15 findings: at that review,
-  12 alerts were open and three were dismissed with documented reasons. Its log
-  records 290 extracted files, including code, configuration and HTML files.
-  These numbers differ in scope from the historical 134-file/18-finding scan below.
-- At this update, remote main was `1cde23d41cf2cbc364e62a881be71d4b69d3f3ce`.
-  Its [Security run 45009424373](https://github.com/cooldog98/ICheerTOR/actions/runs/45009424373)
-  was still in progress when checked; no successful execution is claimed here.
-  The [branch run 45009292053](https://github.com/cooldog98/ICheerTOR/actions/runs/45009292053)
-  passed for `345b51658f15d8039bb8897f74ebe5d49b1d39e6`.
+- Local regression checks on 22 November: main 175, supplementary 25, resilience
+  61 and integrity 30 passed; ingestion checks, offline deterministic extraction
+  checks (88) and backend build also passed. The 175-check main execution followed
+  an earlier 171-check run. Tests used synthetic records and mocked providers;
+  no new live-provider verification is claimed. See [follow-up](reports/codeql-pr1-review.md).
+- [Remote Security run 45010808026](https://github.com/cooldog98/ICheerTOR/actions/runs/45010808026)
+  passed for main revision `ca27c7da4607c9d7bdc4bd130ebbc20ecfb107e8`.
+  CodeQL, Semgrep, security regressions, production-dependency audits and both
+  SBOM generation/upload jobs succeeded.
+- CodeQL analysis `2223794372` retained three findings, all previously dismissed
+  with documented reasons, with **zero open alerts** at this review. The twelve
+  alerts addressed in the latest update were marked fixed; including the three
+  earlier search/bookmark fixes, fifteen alerts are cumulatively marked fixed.
+- The earlier main analysis for `5688b81` recorded fifteen findings (twelve open,
+  three dismissed) and 290 extracted files. That is historical evidence; the
+  290-file count is not reassigned to the latest scan without checking its log.
 
 The Google Docs report contains the live execution screenshots and additional
 ASVS Level 1 review. The repository reports below retain their historical scope.
@@ -49,8 +49,8 @@ compliance or resolution of every scanner alert.
   at the backend; synthetic admin and user matrices pass.
 - **Input validation / SQL, NoSQL and ORM injection — implemented in tested
   scope.** Zod middleware, typed/allowlisted queries and escaped search regexes
-  have attack tests. The app uses MongoDB, not SQL. Retain CodeQL query-flow
-  warnings and their mitigation review rather than claiming no findings.
+  have attack tests. The app uses MongoDB, not SQL. Historical query-flow
+  findings and subsequent fixes are retained in the follow-up review.
 - **Environment/credentials — source controls present.** Configuration checks,
   exclusions and historical secret scans exist. This review does not certify
   credentials, production IAM or secret rotation. Vertex smoke-test output was
