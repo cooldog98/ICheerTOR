@@ -37,7 +37,7 @@ export interface PickedDocument extends ArchiveEntry {
 interface Rule {
   kind: DocumentKind;
   rank: number;
-  test: RegExp;
+  test: RegExp | RegExp[];
   reason: string;
 }
 
@@ -56,13 +56,13 @@ const RULES: Rule[] = [
     rank: 1,
     // doc_310000110000062_69049037572.pdf is the e-GP generated bidding
     // document — real text, unlike the scanned TOR beside it.
-    test: /^doc_\d|bidding|เอกสารประกวดราคา|document\s*part|e-?bidding/i,
+    test: [/^doc_\d/i, /bidding|เอกสารประกวดราคา|document\s*part|e-?bidding/i],
     reason: "เอกสารประกวดราคา — มีคุณสมบัติผู้ยื่นข้อเสนอบางส่วน",
   },
   {
     kind: "announcement",
     rank: 2,
-    test: /^annoudoc|announce|ประกาศ|notice/i,
+    test: [/^annoudoc/i, /announce|ประกาศ|notice/i],
     reason: "ประกาศเชิญชวน — มีวันที่และวงเงิน",
   },
   {
@@ -84,7 +84,8 @@ const PDF_RE = /\.pdf$/i;
 
 function classify(entry: ArchiveEntry): PickedDocument {
   for (const rule of RULES) {
-    if (rule.test.test(entry.name)) {
+    const patterns = Array.isArray(rule.test) ? rule.test : [rule.test];
+    if (patterns.some(pattern => pattern.test(entry.name))) {
       return { ...entry, kind: rule.kind, rank: rule.rank, reason: rule.reason };
     }
   }

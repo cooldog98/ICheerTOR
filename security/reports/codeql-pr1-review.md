@@ -76,3 +76,45 @@ The suites use disposable synthetic databases and mocked external providers.
 No live SMTP/AI/Google verification is claimed by this run. CodeQL was not rerun
 locally; the CLI is not installed. The later remote analysis and triage are
 recorded above.
+
+## Main-branch follow-up: 12 open alerts
+
+Reviewed on 22 November 2026 using CodeQL analysis `2223772666` for main
+revision `024dbc7f75df27b7f415794782e9ba87199370e8`. The changes below are local
+follow-up work; no new CodeQL execution or dismissal is claimed by this section.
+
+- #8, #23: admin user queries receive validated status/role values. Filters now
+  use explicit `$eq` operands; escaped regex matching is retained for name/email.
+- #10, #24: admin audit queries receive a validated action string. Both list and
+  count queries now use the same explicit equality filter.
+- #12, #13: review status is schema-validated and branch-allowlisted. The
+  verified/outdated filter now explicitly uses `$eq`.
+- #14, #15: TOR phase is schema-validated; the phase filter now uses `$eq`.
+  Existing ownership, authorization, numeric bounds and sort allowlists remain.
+- #25: the month-regex alternatives came from a fixed internal month-name map,
+  not arbitrary input. Replaced dot-only escaping with the shared full regex
+  escaping helper so future additions cannot introduce regex metacharacters.
+- #17, #18: filename rules intentionally combined anchored generated-file
+  prefixes with substring keywords. Split those alternatives into separate
+  regexes evaluated with `some`, preserving both kinds of match without mixed
+  anchoring. These classify documents; they do not authorize file access.
+- #3: maintenance detection previously removed HTML tags with regexes. It now
+  uses the existing Cheerio dependency to parse HTML, remove script/style nodes,
+  and extract plain text. This is notice detection, not a general HTML sanitizer;
+  callers must continue to render any extracted notice as text.
+
+Verification:
+
+- Backend build passed.
+- Full `npm run test:security` completed successfully after the source changes:
+  main 171, supplementary 25, resilience 61 and integrity 30 checks passed;
+  ingestion checks also passed, including the new parser/classifier cases.
+- Added four equality-filter regression checks and reran the main suite:
+  **175 passed, 0 failed**. The earlier 171 result remains a separate execution.
+- Offline deterministic extraction checks: **88 passed, 0 failed**.
+- New cases cover script/style exclusion, real maintenance text, anchored file
+  prefixes, substring keywords and non-prefix lookalikes.
+- These checks did not use the application database or live external providers.
+
+After pushing, inspect a new CodeQL analysis before claiming any of these
+12 alerts are fixed. No rules were disabled and no remaining alerts dismissed.

@@ -57,8 +57,8 @@ router.get("/users", requireScope("users:read"), validate({ query: adminUsersQue
   const limit = Math.min(100, parseInt((req.query.limit as string) ?? "50", 10));
 
   const filter: Record<string, unknown> = {};
-  if (status) filter.status = status;
-  if (role) filter.role = role;
+  if (status) filter.status = { $eq: status };
+  if (role) filter.role = { $eq: role };
   if (q) {
     // Escaped: the search is a literal substring match, not a user-supplied regex (T12).
     const pattern = escapeRegex(q);
@@ -230,7 +230,7 @@ router.get("/logs", requireScope("audit:read"), validate({ query: adminLogsQuery
   const limit = Math.min(100, parseInt((req.query.limit as string) ?? "20", 10));
 
   const filter: Record<string, unknown> = {};
-  if (action) filter.action = action;
+  if (action) filter.action = { $eq: action };
 
   const [logs, total] = await Promise.all([
     AdminActionLog.find(filter)
@@ -284,7 +284,7 @@ router.get("/tor-review", requireScope("tor:review"), validate({ query: torRevie
       : status === "all"
         ? { extractionStatus: "completed" }
         : status === "verified" || status === "outdated"
-          ? { "review.status": status }
+          ? { "review.status": { $eq: status } }
           : null;
   if (!filter) {
     Errors.badRequest(res, "status must be pending, verified, outdated or all");

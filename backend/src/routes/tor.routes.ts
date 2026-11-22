@@ -180,7 +180,7 @@ router.get("/", validate({ query: torListQuery }), async (req: Request, res: Res
       if (budgetMin) (filter.medianPrice as Record<string, number>).$gte = Number(budgetMin);
       if (budgetMax) (filter.medianPrice as Record<string, number>).$lte = Number(budgetMax);
     }
-    if (phase) filter.phase = phase;
+    if (phase) filter.phase = { $eq: phase };
     if (needsCheck) filter["dataChecks.needsCheck"] = true;
 
     const tagConditions: Record<string, unknown>[] = [];

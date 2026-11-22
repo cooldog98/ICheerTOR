@@ -1,3 +1,5 @@
+import { load } from "cheerio";
+
 /* Detect e-GP maintenance notices returned as HTTP 200 HTML responses.
  * Treat the notice as unavailable upstream data, not a valid feed or archive. */
 
@@ -8,15 +10,12 @@ export class EgpMaintenanceError extends Error {
   }
 }
 
-/* Visible text of an HTML page: entities decoded, tags and whitespace collapsed. */
+/* Read plain text for notice detection, not HTML safe for rendering. */
 function visibleText(html: string): string {
-  return html
-    .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(Number(n)))
-    .replace(/&nbsp;/g, " ")
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const $ = load(html);
+  $("script, style").remove();
+  $("*").append(" ");
+  return $.root().text().replace(/\s+/g, " ").trim();
 }
 
 /* The maintenance notice when `body` is e-GP's downtime page, else null.
