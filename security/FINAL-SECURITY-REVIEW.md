@@ -1,18 +1,49 @@
 # Final implementation mapping review
 
-18 November 2026. Current working tree, not just the committed base. This report
-does not change the Google Sheet, source database, or external Google settings.
+Updated 22 November 2026. This overview combines recorded evidence from separate
+executions. Each result retains its own date, source scope and limitations;
+updating this file does not rerun any test or scan.
+
+## Current evidence summary
+
+- Google-only authentication is permitted by the instructor, as reported by the
+  team. Local password authentication is not implemented or claimed.
+- Live Google sign-in passed five browser-reported checks on 20 November 2026.
+- One synthetic SMTP message was submitted and received on 20 November 2026.
+  Database-backed notification dispatch through live SMTP remains unverified.
+- Live AI baseline extraction and one embedded-instruction case passed in separate
+  text-only custom-schema executions on 21 November 2026 (Asia/Bangkok). Full live
+  TOR/PDF extraction, factual accuracy and broad adversarial coverage remain open.
+- Local regression checks on 22 November: main 171, supplementary 25, resilience
+  61 and integrity 30 passed; ingestion checks and backend build also passed.
+  These used disposable synthetic databases and mocked providers. The exact local
+  commit was not captured in that execution output. See
+  [PR follow-up](reports/codeql-pr1-review.md).
+- [Remote Security run 45002854162](https://github.com/cooldog98/ICheerTOR/actions/runs/45002854162)
+  passed on main revision `5688b81a76ce74ac9262cedbeb71f8dbdde2ef6a`.
+- The associated main CodeQL analysis recorded 15 findings: at that review,
+  12 alerts were open and three were dismissed with documented reasons. Its log
+  records 290 extracted files, including code, configuration and HTML files.
+  These numbers differ in scope from the historical 134-file/18-finding scan below.
+- At this update, remote main was `1cde23d41cf2cbc364e62a881be71d4b69d3f3ce`.
+  Its [Security run 45009424373](https://github.com/cooldog98/ICheerTOR/actions/runs/45009424373)
+  was still in progress when checked; no successful execution is claimed here.
+  The [branch run 45009292053](https://github.com/cooldog98/ICheerTOR/actions/runs/45009292053)
+  passed for `345b51658f15d8039bb8897f74ebe5d49b1d39e6`.
+
+The Google Docs report contains the live execution screenshots and additional
+ASVS Level 1 review. The repository reports below retain their historical scope.
+CI success is not evidence of production TLS, signed provenance, complete ASVS
+compliance or resolution of every scanner alert.
 
 ## Assignment checklist
 
-- **Password authentication — MISSING.** Current routes provide Google OAuth,
-  not a local password flow. The instructor checklist supplied in chat explicitly
-  includes password authentication. Excluding the password threat from the threat model does not
-  remove that assignment requirement; obtain an instructor exception or implement
-  and test the feature separately. Do not report Google login as both methods.
-- **Social OAuth/OpenID — implementation present, live evidence pending.** Real
-  Google login is currently blocked by redirect URI registration for the isolated
-  harness. Offline auth tests do not establish provider success.
+- **Password authentication — instructor-approved scope exception.** The team
+  confirmed instructor permission for Google-only authentication. This is not an
+  implementation claim for local password authentication.
+- **Social OAuth/OpenID — implementation and scoped live verification present.**
+  The isolated live Google flow passed five browser-reported checks on
+  20 November 2026; broader OAuth attack coverage is not inferred from that run.
 - **Authorization and object access — implemented in tested scope.** Current
   role/status, route scopes, field allowlists and ownership checks are enforced
   at the backend; synthetic admin and user matrices pass.
@@ -32,7 +63,7 @@ does not change the Google Sheet, source database, or external Google settings.
 - **HTTP headers — local implementation/evidence present.** Helmet/backend and
   nonce/frontend controls exist. Keep the actual ZAP warnings about inline CSS
   and cross-origin isolation, and capture DevTools headers for presentation.
-- **SAST/DAST reports — final rerun recorded separately below.** API regressions
+- **SAST/DAST reports — dated analyses recorded below.** API regressions
   are not SAST and are not a substitute for a ZAP report.
 
 ## Four selected advanced features
@@ -81,11 +112,11 @@ or replace that spreadsheet status.
 
 Application-password, application-MFA and cookie-authenticated API threats are excluded. References below use the current sequential T01–T25 register. [THREAT-COVERAGE.md](THREAT-COVERAGE.md) describes the retained controls
 and residual risks. T14/T15 now have mocked-model and generated-document evidence;
-real-model prompt injection remains pending. T25 has synthetic lease/crash/load
+one live embedded-instruction case also passed separately. Full live TOR/PDF
+extraction and broader adversarial evaluation remain unverified. T25 has synthetic lease/crash/load
 and fixture restore evidence, not global quotas or production recovery proof.
-The original detailed Google Docs threat text was not re-fetched for this run;
-this mapping uses the repository threat IDs and scope. Compare any later Docs
-edits before submission.
+The mapping uses the repository threat IDs. The Google Docs report separately
+records implementation and verification status for the current review scope.
 
 ## OWASP Top 10 mapping
 
@@ -108,7 +139,7 @@ requires 2021 numbering, use an explicit 2021 crosswalk rather than mixing IDs.
 - **A06 Insecure Design:** T13/T14/T15/T25; limits, review boundaries and recovery
   design; synthetic resilience tests, residual AI/global-quota risks.
 - **A07 Authentication Failures:** T01/T02/T03/T04; OAuth state/PKCE, browser
-  binding, JWT/session revocation and timeouts; live Google flow pending.
+  binding, JWT/session revocation and timeouts; scoped live Google flow passed.
 - **A08 Software or Data Integrity Failures:** T11/T12/T16/T17; archive checks,
   transaction rollback and fenced updates; not a signed artifact supply chain.
 - **A09 Security Logging and Alerting Failures:** T18/T19; structured security
@@ -130,12 +161,13 @@ values in [generation summary](reports/sbom-generation-summary.json).
 The security workflow now generates the same inventories from each app lockfile
 and uploads `sbom-backend` and `sbom-frontend` artifacts, retained for 30 days.
 The job does not install packages or run their lifecycle scripts. It has been
-configured and locally inspected, but a successful GitHub CI run is not yet
-verified. Regenerate inventories whenever lockfiles change. These are production
+verified in remote Security run 45002854162 for revision `5688b81`, including
+the SBOM generation/upload jobs. This does not validate every artifact content
+or establish signed provenance. Regenerate inventories whenever lockfiles change. These are production
 lockfile graphs, not proof of installed runtime contents, image/OS packages,
 development dependencies or signed build provenance. ASVS V15.1.2 remains partial.
 
-## Final scan evidence
+## Historical scan evidence (18–20 November 2026)
 
 CodeQL 2.27.4 ran 105 security-extended queries over 134 source/script files.
 The initial expanded scan had 19 results; removing the Vertex diagnostic's key
@@ -158,7 +190,7 @@ Administrative mutations/logout/deletion are excluded from ZAP and covered by
 synthetic API tests. Authenticated frontend behavior is checked separately by
 Firefox. A completed configured scan is not an exhaustive attack guarantee.
 
-The fresh isolated Firefox run passed **57 checks, zero failures**, and its
+The recorded isolated Firefox run passed **57 checks, zero failures**, and its
 runtime exited 0. See `reports/browser-security-comprehensive.json` and
 `reports/final-zap-run.txt`. The harness stopped its owned scan/browser processes
 and temporary databases after the run.
@@ -170,6 +202,7 @@ ZAP completion and scope are recorded in `reports/zap-comprehensive-manifest.jso
 Do not infer success from the existence of an old manifest; use its finishedAtUtc
 and the scan-run output for this round.
 
-The latest API/security run passed 249 counted assertions plus ingestion tests.
-Live Google OAuth, actual SMTP delivery and actual-model adversarial evaluation
-are separate pending tasks. No real database or external provider was attacked.
+The earlier API/security evidence recorded 249 counted assertions plus ingestion
+checks. Later local regressions and live provider checks are summarized at the top
+of this file; they do not retroactively change these historical scanner results.
+No production-data attack testing is claimed.
