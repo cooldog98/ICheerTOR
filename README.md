@@ -34,8 +34,8 @@ The project is split into two services:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Natcha-limsuwan/Software-Process.git
-cd Software-Process
+git clone https://github.com/cooldog98/ICheerTOR.git
+cd ICheerTOR
 
 # 2. Install backend dependencies
 cd backend
